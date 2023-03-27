@@ -1,0 +1,131 @@
+natural  = @{ "0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* }
+real     = @{ natural ~ "." ~ (ASCII_DIGIT+) }
+binary   = @{ "0b" ~ ASCII_BIN_DIGIT+ }
+octal    = @{ "0o" ~ ASCII_OCT_DIGIT+ }
+hex      = @{ "0x" ~ ASCII_HEX_DIGIT+ }
+hexcolor = @{ "#" ~ (ASCII_HEX_DIGIT{8} | ASCII_HEX_DIGIT{6} | ASCII_HEX_DIGIT{4} | ASCII_HEX_DIGIT{3}) }
+number   =  { hex | octal | binary | real | natural }
+color    =  {
+    hexcolor
+  | ("rgba(" ~ natural ~ "," ~ natural ~ "," ~ natural ~ "," ~ natural ~ ")")
+  | ("rgb(" ~ natural ~ "," ~ natural ~ "," ~ natural ~ ")")
+}
+
+// mostly fits the semver spec, but a tiny bit more permissive
+// TODO: support >=
+version      = ${
+    "v"? ~ ((version_core ~ "-" ~ v_extra ~ "+" ~ v_extra) | (version_core ~ "-" ~ v_extra) | (version_core ~ "+" ~ v_extra) | version_core)
+}
+version_core = ${ natural ~ "." ~ natural ~ "." ~ natural }
+// major.minor.patch
+v_extra = @{ (v_id ~ "." ~ v_extra) | v_id }
+v_id    =  { (ASCII_ALPHANUMERIC | "-")+ }
+
+// filepath = {} //todo
+// uri = {} //todo
+// resource = { filepath | uri }
+bool   = { "true" | "false" }
+list   = { "[" ~ (expr ~ ",")* ~ (expr ~ ","?)? ~ "]" }
+record_pair = { ident ~ "=" ~ expr }
+record = { 
+    "{" ~ "}"
+    | "{" ~ record_pair ~ ("," ~ record_pair)* ~ ","? ~ "}" }
+
+string = ${ "\"" ~ inner ~ "\"" }
+inner  = @{ char* }
+char   =  {
+    !("\"" | "\\") ~ ANY
+  | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
+  | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
+}
+ident  = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
+
+list_type        =  { "[" ~ type_expr ~ "]" }
+record_type      =  { "{" ~ (ident ~ ":" ~ type_expr ~ ",")* ~ (ident ~ ":" ~ type_expr ~ ","?)? ~ "}" }
+function_type    =  { type_term ~ "->" ~ type_expr }
+alternative_type =  { type_term ~ ("|" ~ type_expr)+ }
+builtin_type     =  {
+    "Bool"
+  | "Text"
+  | "Number"
+  | "Natural"
+  | "Integer"
+  | "Real"
+  | "Color"
+  | "Path"
+  | "Null"
+  | "Version" // semver
+}
+user_type        = @{ (builtin_type ~ ident) | (!builtin_type ~ ident) }
+
+type_term = {
+    user_type
+  | builtin_type
+  | ("(" ~ type_expr ~ ")")
+}
+
+type_expr = {
+  
+  | type_term
+  | function_type
+  | list_type
+  | record_type
+  | alternative_type
+}
+
+null = {"null"}
+paren_expr = {"(" ~ expr ~ ")"}
+
+term = _{
+  
+  | list
+  | record
+  | string
+  | version
+  | number
+  | bool
+  | color
+  | null
+  | ident // | resource
+  | lambda
+  | paren_expr
+}
+
+function_application =  { term ~ term+ }
+lambda               =  {
+    "\\(" ~ ident ~ ":" ~ type_expr ~ ")" ~ "->" ~ expr
+  | "\\(" ~ ident ~ ")" ~ "->" ~ expr
+  | "\\" ~ ident ~ ":" ~ type_expr ~ "->" ~ expr
+  | "\\" ~ ident ~ "->" ~ expr
+}
+if_expr              =  { "if" ~ term ~ "then" ~ term ~ "else" ~ term }
+let_expr             =  {
+    "let" ~ ident ~ ":" ~ type_expr ~ "=" ~ term ~ "in" ~ expr
+  | "let" ~ ident ~ "=" ~ term ~ "in" ~ expr
+}
+binop                =  { "+" | "**" | "*" | "-" | "/" | "." | ">" | "<" | ">=" | "<=" | "==" | "!=" | "&&" | "||" | "^" }
+binop_expr           =  { term ~ binop ~ term }
+unop                 =  { "!" | "-" }
+unop_expr            = @{ unop ~ term }
+
+// TODO: figure out where to put this. it can't be an expression because I only want it top level
+type_decl = {
+    "type" ~ user_type ~ "=" ~ type_expr ~ "in" ~ expr
+}
+
+expr = _{
+  | if_expr
+  | let_expr
+  | function_application
+  | binop_expr
+  | unop_expr
+  | term
+}
+
+// extra data, such as version
+// topmatter = {} //TODO
+
+file = _{ SOI ~ expr ~ EOI }
+
+WHITESPACE = _{ " " | "\t" | NEWLINE }
+COMMENT    = _{ ("/*" ~ (!"*/" ~ ANY)* ~ "*/") | ("//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE?) }

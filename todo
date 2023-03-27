@@ -1,0 +1,11 @@
+parser
+    - add date support
+    - add path support
+    - add uri support
+    - add ip support
+    - environmental variable support (maybe)
+    - match/case
+    - hash
+
+ast
+    - pretty printer / formatter

@@ -1,0 +1,41 @@
+- get a list of programs to install
+    - cask, normal brew
+    - union of brew bundle file, list of programs in config, and enabled modules
+
+- install those programs
+    - maybe check which ones are installed and don't rerun those
+    - or maybe do, for updates
+    
+- generate config for each program
+- run total config through each program's part 2 phase
+    to get a list of operations to perform
+
+
+we need some way for different configs to interact.
+e.g. completions from exa and zsh config
+
+generate big config, then run big config through each file's function
+this will let each file extract what it needs (same model as nix/home-manager)
+the result of this is a list of operations, which can then be fed in to another program to run
+
+we can construct the type object manually by merging the type objects of the other things
+
+
+I don't think Dhall will work for what I want. I'm going to try using Grace (or modifying grace) https://github.com/Gabriella439/grace
+
+
+cli commands
+`validate <configFile (optional)>` - check that the config is valid
+`format <configFile (optional)>` - format the config file nicely
+`apply (--dryrun)` - run the config and apply it to the system
+`revert (--dryrun)` - go back to the state of the system before running apply
+`pull` - pull the latest version of config from user git repo
+`push` - push the current version of config to the user git repo
+`upgrade` - update this program to the newest version
+`edit` - open the config in the user's editor
+`help` - display the help text
+`uninstall (--all)` - remove this from the user's system. --all deletes all connected files
+`completion` - generate shell completion code
+`git` - run git in the config directory
+`cd` - cd into the config directory
+`init` - generate a default config file

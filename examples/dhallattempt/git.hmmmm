@@ -1,0 +1,5 @@
+enable: bool = true
+userName: string = ""
+userEmail: string = ""
+gitconifg: path | None = None
+preferGitConfigt: bool = false
