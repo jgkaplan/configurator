@@ -41,9 +41,12 @@ char   =  {
 ident  = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
 
 list_type        =  { "[" ~ type_expr ~ "]" }
-record_type      =  { "{" ~ (ident ~ ":" ~ type_expr ~ ",")* ~ (ident ~ ":" ~ type_expr ~ ","?)? ~ "}" }
+record_type_pair = { ident ~ ":" ~ type_expr }
+record_type = { 
+    "{" ~ "}"
+    | "{" ~ record_type_pair ~ ("," ~ record_type_pair)* ~ ","? ~ "}" }
 function_type    =  { type_term ~ "->" ~ type_expr }
-alternative_type =  { type_term ~ ("|" ~ type_expr)+ }
+alternative_type =  { type_term ~ "|" ~ type_expr }
 builtin_type     =  {
     "Bool"
   | "Text"
@@ -55,17 +58,19 @@ builtin_type     =  {
   | "Path"
   | "Null"
   | "Version" // semver
+  | "Any"
+  | "Type"
 }
 user_type        = @{ (builtin_type ~ ident) | (!builtin_type ~ ident) }
+paren_type = {"(" ~ type_expr ~ ")"}
 
-type_term = {
+type_term = _{
     user_type
   | builtin_type
-  | ("(" ~ type_expr ~ ")")
+  | paren_type
 }
 
 type_expr = {
-  
   | type_term
   | function_type
   | list_type
@@ -93,9 +98,15 @@ term = _{
 
 function_application =  { term ~ term+ }
 lambda               =  {
-    "\\(" ~ ident ~ ":" ~ type_expr ~ ")" ~ "->" ~ expr
-  | "\\(" ~ ident ~ ")" ~ "->" ~ expr
+  typed_lambda
+  | untyped_lambda
+}
+typed_lambda = {
+  "\\(" ~ ident ~ ":" ~ type_expr ~ ")" ~ "->" ~ expr
   | "\\" ~ ident ~ ":" ~ type_expr ~ "->" ~ expr
+}
+untyped_lambda = {
+  "\\(" ~ ident ~ ")" ~ "->" ~ expr
   | "\\" ~ ident ~ "->" ~ expr
 }
 if_expr              =  { "if" ~ term ~ "then" ~ term ~ "else" ~ term }
