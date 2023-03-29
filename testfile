@@ -1,5 +1,5 @@
-{
-    hello = 12,
+let x : Number = 12 in {
+    hello = x,
     fish = "no",
     eleven = 4 + 2
 }

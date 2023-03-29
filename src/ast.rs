@@ -167,7 +167,7 @@ pub struct TypedExpr {
 
 #[derive(Debug)]
 pub enum ExprKind<Wrapper> {
-    Let(Ident, Box<Wrapper>, Box<Wrapper>),
+    Let(Ident, Option<Type>, Box<Wrapper>, Box<Wrapper>),
     If(Box<Wrapper>, Box<Wrapper>, Box<Wrapper>),
     App(Box<Wrapper>, Box<Wrapper>),
     Binop(Box<Wrapper>, Binop, Box<Wrapper>),
@@ -178,7 +178,7 @@ pub enum ExprKind<Wrapper> {
     Text(String),
     Number(f64),
     Boolean(bool),
-    Lambda(Ident,Box<Wrapper>),
+    Lambda(Ident,Option<Type>,Box<Wrapper>),
     Null,
     //Color, Version, Path
 }

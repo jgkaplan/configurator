@@ -70,12 +70,12 @@ type_term = _{
   | paren_type
 }
 
-type_expr = {
-  | type_term
+type_expr = _{
+  | alternative_type
   | function_type
   | list_type
   | record_type
-  | alternative_type
+  | type_term
 }
 
 null = {"null"}
@@ -110,9 +110,11 @@ untyped_lambda = {
   | "\\" ~ ident ~ "->" ~ expr
 }
 if_expr              =  { "if" ~ term ~ "then" ~ term ~ "else" ~ term }
+typed_let = { "let" ~ ident ~ ":" ~ type_expr ~ "=" ~ term ~ "in" ~ expr }
+untyped_let = {"let" ~ ident ~ "=" ~ term ~ "in" ~ expr}
 let_expr             =  {
-    "let" ~ ident ~ ":" ~ type_expr ~ "=" ~ term ~ "in" ~ expr
-  | "let" ~ ident ~ "=" ~ term ~ "in" ~ expr
+  typed_let
+  | untyped_let
 }
 binop                =  { "+" | "**" | "*" | "-" | "/" | "." | ">" | "<" | ">=" | "<=" | "==" | "!=" | "&&" | "||" | "^" }
 binop_expr           =  { term ~ binop ~ term }
@@ -121,7 +123,7 @@ unop_expr            = @{ unop ~ term }
 
 // TODO: figure out where to put this. it can't be an expression because I only want it top level
 type_decl = {
-    "type" ~ user_type ~ "=" ~ type_expr ~ "in" ~ expr
+    "type" ~ user_type ~ "=" ~ type_expr
 }
 
 expr = _{

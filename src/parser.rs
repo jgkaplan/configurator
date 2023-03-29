@@ -57,11 +57,11 @@ fn parse_type(pair: Pair<Rule>) -> Type {
             Type::Alternative(Box::new(t1), Box::new(t2))
         },
         Rule::user_type => {
-            let id = parse_ident(pair.into_inner().next().unwrap());
+            let id = parse_ident(pair);
             Type::Ident(id)
         },
         Rule::builtin_type => {
-            match pair.into_inner().next().unwrap().as_str() {
+            match pair.as_str() {
                 "Bool" => Type::Bool,
                 "Text" => Type::Text,
                 "Number" => Type::Number,
@@ -80,25 +80,28 @@ fn parse_type(pair: Pair<Rule>) -> Type {
         Rule::paren_type => {
             parse_type(pair.into_inner().next().unwrap())
         },
-        _ => unreachable!()
+        _ => {
+            unreachable!()
+        }
     }
 }
 
 fn parse_expr(pair: Pair<Rule>) -> Expr {
     match pair.as_rule() {
         Rule::let_expr => {
-            let mut it = pair.into_inner();
-            let ident = it.next().unwrap();
-            let ident: Ident = ident.to_string();
+            let l = pair.into_inner().next().unwrap();
+            let istyped = l.as_rule() == Rule::typed_let;
+            let mut it = l.into_inner();
+            let ident = parse_ident(it.next().unwrap());
+            let t = istyped.then(|| parse_type(it.next().unwrap()));
             let e1 = it.next().unwrap();
             let e1 = parse_expr(e1);
             let e2 = it.next().unwrap();
             let e2 = parse_expr(e2);
             Expr {
                 t: None,
-                expr: Let(ident, Box::new(e1), Box::new(e2))
+                expr: Let(ident, t, Box::new(e1), Box::new(e2))
             }
-            
         }
         Rule::if_expr => {
             let mut it = pair.into_inner();
@@ -215,28 +218,14 @@ fn parse_expr(pair: Pair<Rule>) -> Expr {
         },
         Rule::lambda => {
             let lam = pair.into_inner().next().unwrap();
-            match lam.as_rule() {
-                // TODO: these rules don't do anything
-                Rule::untyped_lambda => {
-                    let mut it = lam.into_inner();
-                    let x = parse_ident(it.next().unwrap());
-                    let e = parse_expr(it.next().unwrap());
-                    Expr {
-                        t: None,
-                        expr: Lambda(x, Box::new(e))
-                    }
-                },
-                Rule::typed_lambda => {
-                    let mut it = lam.into_inner();
-                    let x = parse_ident(it.next().unwrap());
-                    let t = parse_type(it.next().unwrap());
-                    let e = parse_expr(it.next().unwrap());
-                    Expr {
-                        t: None,
-                        expr: Lambda(x, Box::new(e))
-                    }
-                },
-                _ => unreachable!()
+            let istyped = lam.as_rule() == Rule::typed_lambda;
+            let mut it = lam.into_inner();
+            let x = parse_ident(it.next().unwrap());
+            let t = istyped.then(|| parse_type(it.next().unwrap()));
+            let e = parse_expr(it.next().unwrap());
+            Expr {
+                t: None,
+                expr: Lambda(x, t, Box::new(e))
             }
         },
         Rule::paren_expr => {
