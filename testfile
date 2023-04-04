@@ -1,5 +1,7 @@
+let square = \(y) -> y * y in
 let x : Number = 12 in {
-    hello = x,
+    hello = square(x),
     fish = "no",
-    eleven = 4 + 2
+    eleven = 4 + 2.12,
+    another = (if (2 == 2) then "foo" else "bar")
 }

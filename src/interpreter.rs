@@ -1,26 +1,26 @@
-use crate::ast::{TypedExpr, Ident, Value, ExprKind, Bop};
+use crate::ast::{TypedExpr, Expr, Ident, Value, ExprKind, Bop};
 use std::collections::HashMap;
 
 // reduce the AST to its simplest form
-pub fn normalize(expr: &TypedExpr, bindings: &HashMap<Ident,Value>) -> Result<Value, String> {
-    match expr.expr {
+pub fn normalize(expr: &Expr, bindings: &HashMap<Ident,Value>) -> Result<Value, String> {
+    match &expr.expr {
         ExprKind::App(e1, e2) => {
             // TODO: call by value? call by name? call by something else?
             let ne1 = normalize(&*e1, bindings)?;
             if let Value::Lambda(id, e) = ne1 {
                 let ne2 = normalize(&*e2, bindings)?;
-                let new_bindings = bindings.clone();
+                let mut new_bindings = bindings.clone();
                 new_bindings.insert(id, ne2);
                 normalize(&e, &new_bindings)
             } else {
                 Err(format!("Expression {ne1:#?} is not a lambda"))
             }
         },
-        ExprKind::Lambda(id, _, e) => Ok(Value::Lambda(id, *e.clone())),
+        ExprKind::Lambda(id, _, e) => Ok(Value::Lambda(id.clone(), *e.clone())),
         ExprKind::Let(id, _, e1, e2) => {
             let newe1 = normalize(&*e1, bindings)?;
-            let new_bindings = bindings.clone();
-            new_bindings.insert(id, newe1);
+            let mut new_bindings = bindings.clone();
+            new_bindings.insert(id.clone(), newe1);
             normalize(&*e2, &new_bindings)
         }
         ExprKind::If(b, e1, e2) => {
@@ -39,14 +39,15 @@ pub fn normalize(expr: &TypedExpr, bindings: &HashMap<Ident,Value>) -> Result<Va
             use crate::ast::Uop;
             let v = normalize(&*e, bindings)?;
             match (uop, v) {
-                (Uop::Neg, Value::Number(n)) => Ok(Value::Number(-n)),
+                (Uop::Neg, Value::Float(n)) => Ok(Value::Float(-n)),
+                (Uop::Neg, Value::Int(n)) => Ok(Value::Int(-n)),
                 (Uop::Not, Value::Boolean(b)) => Ok(Value::Boolean(!b)),
                 _ => unreachable!()
             }
         }
         ExprKind::Record(hm) => {
-            let reduced_hm = HashMap::new();
-            for (k,v) in &hm {
+            let mut reduced_hm = HashMap::new();
+            for (k,v) in hm {
                 let newv = normalize(v, bindings)?;
                 reduced_hm.insert(k.clone(), newv);
             }
@@ -57,19 +58,20 @@ pub fn normalize(expr: &TypedExpr, bindings: &HashMap<Ident,Value>) -> Result<Va
             Ok(Value::List(newl?))
         },
         ExprKind::Ident(id) => {
-            match bindings.get(&id) {
+            match bindings.get(id) {
                 Some(v) => Ok(v.clone()),
                 None => Err(format!("Identifier '{id}' is not bound"))
             }
         },
-        ExprKind::Text(t) => Ok(Value::Text(t)),
-        ExprKind::Number(num) => Ok(Value::Number(num)),
-        ExprKind::Boolean(b) => Ok(Value::Boolean(b)),
+        ExprKind::Text(t) => Ok(Value::Text(t.clone())),
+        ExprKind::Float(num) => Ok(Value::Float(num.clone())),
+        ExprKind::Int(num) => Ok(Value::Int(num.clone())),
+        ExprKind::Boolean(b) => Ok(Value::Boolean(b.clone())),
         ExprKind::Null => Ok(Value::Null),
         ExprKind::Binop(e1, bop, e2) => {
             let ne1 = normalize(&*e1, bindings)?;
             let ne2 = normalize(&*e2, bindings)?;
-            eval_binop(bop, &ne1, &ne2)
+            eval_binop(*bop, &ne1, &ne2)
         }
             
     }
@@ -79,32 +81,60 @@ fn eval_binop(bop: Bop, ne1: &Value, ne2: &Value) -> Result<Value, String>{
     use crate::ast::Value::*;
     match (bop, ne1, ne2) {
         // numbers
-        (Bop::Pow, Number(a), Number(b)) => Ok(Number(a.powf(*b))),
-        (Bop::Plus, Number(a), Number(b)) => Ok(Number(a + b)),
-        (Bop::Minus, Number(a), Number(b)) => Ok(Number(a - b)),
-        (Bop::Times, Number(a), Number(b)) => Ok(Number(a * b)),
-        (Bop::Div, Number(a), Number(b)) => Ok(Number(a / b)),
-        (Bop::And, Number(a), Number(b)) => {
-            let a1: i64 = unsafe {a.to_int_unchecked()};
-            let b1: i64 = unsafe {b.to_int_unchecked()};
-            Ok(Number((a1 & b1) as f64))
+        (Bop::Pow, Int(a), Int(b)) => Ok(Float((*a as f64).powf(*b as f64))),
+        (Bop::Pow, Float(a), Float(b)) => Ok(Float(a.powf(*b))),
+        (Bop::Pow, Int(a), Float(b)) => Ok(Float((*a as f64).powf(*b))),
+        (Bop::Pow, Float(a), Int(b)) => Ok(Float(a.powf(*b as f64))),
+        (Bop::Plus, Int(a), Int(b)) => Ok(Int(a + b)),
+        (Bop::Minus, Int(a), Int(b)) => Ok(Int(a - b)),
+        (Bop::Times, Int(a), Int(b)) => Ok(Int(a * b)),
+        (Bop::Plus, Float(a), Float(b)) => Ok(Float(a + b)),
+        (Bop::Minus, Float(a), Float(b)) => Ok(Float(a - b)),
+        (Bop::Times, Float(a), Float(b)) => Ok(Float(a * b)),
+        (Bop::Plus, Int(a), Float(b)) => Ok(Float(*a as f64 + *b)),
+        (Bop::Minus, Int(a), Float(b)) => Ok(Float(*a as f64 - *b)),
+        (Bop::Times, Int(a), Float(b)) => Ok(Float(*a as f64 * *b)),
+        (Bop::Plus, Float(a), Int(b)) => Ok(Float(*a + *b as f64)),
+        (Bop::Minus, Float(a), Int(b)) => Ok(Float(*a - *b as f64)),
+        (Bop::Times, Float(a), Int(b)) => Ok(Float(*a * *b as f64)),
+        (Bop::Div, Int(a), Int(b)) => Ok(Float((*a as f64) / (*b as f64))),
+        (Bop::Div, Int(a), Float(b)) => Ok(Float((*a as f64) / b)),
+        (Bop::Div, Float(a), Int(b)) => Ok(Float(a / (*b as f64))),
+        (Bop::Div, Float(a), Float(b)) => Ok(Float(a / b)),
+        (Bop::And, Int(a), Int(b)) => {
+            Ok(Int(a & b))
         },
-        (Bop::Or, Number(a), Number(b)) => {
-            let a1: i64 = unsafe {a.to_int_unchecked()};
-            let b1: i64 = unsafe {b.to_int_unchecked()};
-            Ok(Number((a1 | b1) as f64))
+        (Bop::Or, Int(a), Int(b)) => {
+            Ok(Int(a | b))
         },
-        (Bop::Xor, Number(a), Number(b)) => {
-            let a1: i64 = unsafe {a.to_int_unchecked()};
-            let b1: i64 = unsafe {b.to_int_unchecked()};
-            Ok(Number((a1 ^ b1) as f64))
+        (Bop::Xor, Int(a), Int(b)) => {
+            Ok(Int(a ^ b))
         },
-        (Bop::Eq, Number(a), Number(b)) => Ok(Boolean(a == b)),
-        (Bop::Neq, Number(a), Number(b)) => Ok(Boolean(a != b)),
-        (Bop::Lt, Number(a), Number(b)) => Ok(Boolean(a < b)),
-        (Bop::Gt, Number(a), Number(b)) => Ok(Boolean(a > b)),
-        (Bop::Lte, Number(a), Number(b)) => Ok(Boolean(a <= b)),
-        (Bop::Gte, Number(a), Number(b)) => Ok(Boolean(a >= b)),
+        (Bop::Eq, Int(a), Int(b)) => Ok(Boolean(a == b)),
+        (Bop::Neq, Int(a), Int(b)) => Ok(Boolean(a != b)),
+        (Bop::Lt, Int(a), Int(b)) => Ok(Boolean(a < b)),
+        (Bop::Gt, Int(a), Int(b)) => Ok(Boolean(a > b)),
+        (Bop::Lte, Int(a), Int(b)) => Ok(Boolean(a <= b)),
+        (Bop::Gte, Int(a), Int(b)) => Ok(Boolean(a >= b)),
+        (Bop::Eq, Float(a), Float(b)) => Ok(Boolean(a == b)),
+        (Bop::Neq, Float(a), Float(b)) => Ok(Boolean(a != b)),
+        (Bop::Lt, Float(a), Float(b)) => Ok(Boolean(a < b)),
+        (Bop::Gt, Float(a), Float(b)) => Ok(Boolean(a > b)),
+        (Bop::Lte, Float(a), Float(b)) => Ok(Boolean(a <= b)),
+        (Bop::Gte, Float(a), Float(b)) => Ok(Boolean(a >= b)),
+        (Bop::Eq, Int(a), Float(b)) => Ok(Boolean(*a as f64 == *b)),
+        (Bop::Neq, Int(a), Float(b)) => Ok(Boolean(*a as f64 != *b)),
+        (Bop::Lt, Int(a), Float(b)) => Ok(Boolean((*a as f64) < *b)),
+        (Bop::Gt, Int(a), Float(b)) => Ok(Boolean(*a as f64 > *b)),
+        (Bop::Lte, Int(a), Float(b)) => Ok(Boolean(*a as f64 <= *b)),
+        (Bop::Gte, Int(a), Float(b)) => Ok(Boolean(*a as f64 >= *b)),
+        (Bop::Eq, Float(a), Int(b)) => Ok(Boolean(*a == *b as f64)),
+        (Bop::Neq, Float(a), Int(b)) => Ok(Boolean(*a != *b as f64)),
+        (Bop::Lt, Float(a), Int(b)) => Ok(Boolean(*a < *b as f64)),
+        (Bop::Gt, Float(a), Int(b)) => Ok(Boolean(*a > *b as f64)),
+        (Bop::Lte, Float(a), Int(b)) => Ok(Boolean(*a <= *b as f64)),
+        (Bop::Gte, Float(a), Int(b)) => Ok(Boolean(*a >= *b as f64)),
+        
         // bools
         (Bop::And, Boolean(a), Boolean(b)) => Ok(Boolean(*a && *b)),
         (Bop::Or, Boolean(a), Boolean(b)) => Ok(Boolean(*a || *b)),
@@ -116,12 +146,18 @@ fn eval_binop(bop: Bop, ne1: &Value, ne2: &Value) -> Result<Value, String>{
         (Bop::Neq, Null, Null) => Ok(Boolean(false)),
         // text
         (Bop::Plus, Text(t1), Text(t2)) => Ok(Text(t1.clone() + &t2)),
-        (Bop::Times, Text(t), Number(n)) => {
-            let reps = unsafe {n.to_int_unchecked()};
+        (Bop::Times, Text(t), Int(n)) => {
+            let reps = match usize::try_from(*n){
+                Ok(u) => u,
+                Err(e) => return Err(e.to_string())
+            };
             Ok(Text(t.repeat(reps)))
         },
-        (Bop::Access, Text(t), Number(n)) => {
-            let index = unsafe {n.to_int_unchecked()};
+        (Bop::Access, Text(t), Int(n)) => {
+            let index = match usize::try_from(*n){
+                Ok(u) => u,
+                Err(e) => return Err(e.to_string())
+            };
             match t.chars().nth(index) {
                 None => Err(format!("Index {index} out of bounds")),
                 Some(c) => Ok(Text(c.to_string()))
@@ -156,7 +192,7 @@ fn eval_binop(bop: Bop, ne1: &Value, ne2: &Value) -> Result<Value, String>{
             }
             Ok(Boolean(true))
         },
-        (Bop::Neq, Record(hm1), Record(hm2)) => {
+        (Bop::Neq, Record(_), Record(_)) => {
             match eval_binop(Bop::Eq, ne1, ne2)? {
                 Boolean(b) => Ok(Boolean(!b)),
                 _ => unreachable!()
@@ -165,12 +201,15 @@ fn eval_binop(bop: Bop, ne1: &Value, ne2: &Value) -> Result<Value, String>{
         (Bop::Plus, Record(hm1), Record(hm2)) => {
             //When joining records, prefer the variable in the second one if there's overlap
             let mut joined_hashmap = hm1.clone();
-            joined_hashmap.extend(*hm2);
+            joined_hashmap.extend(hm2.clone());
             Ok(Record(joined_hashmap))
         },
         //list
-        (Bop::Access, List(v), Number(n)) => {
-            let index: usize = unsafe {n.to_int_unchecked()};
+        (Bop::Access, List(v), Int(n)) => {
+            let index = match usize::try_from(*n){
+                Ok(u) => u,
+                Err(e) => return Err(e.to_string())
+            };
             match v.get(index) {
                 None => Err(format!("Index {index} out of range")),
                 Some(v) => Ok(v.clone())
@@ -178,7 +217,7 @@ fn eval_binop(bop: Bop, ne1: &Value, ne2: &Value) -> Result<Value, String>{
         },
         (Bop::Plus, List(v1), List(v2)) => {
             let mut joined = v1.clone();
-            joined.extend(*v2);
+            joined.extend(v2.clone());
             Ok(List(joined))
         },
         (Bop::Eq, List(v1), List(v2)) => {
@@ -192,7 +231,7 @@ fn eval_binop(bop: Bop, ne1: &Value, ne2: &Value) -> Result<Value, String>{
             }
             Ok(Boolean(true))
         },
-        (Bop::Neq, List(v1), List(v2)) => {
+        (Bop::Neq, List(_), List(_)) => {
             match eval_binop(Bop::Eq, ne1, ne2)? {
                 Boolean(b) => Ok(Boolean(!b)),
                 _ => unreachable!()
@@ -204,6 +243,7 @@ fn eval_binop(bop: Bop, ne1: &Value, ne2: &Value) -> Result<Value, String>{
         // comparisons between any other types are not equal
         (Bop::Eq, _, _) => Ok(Boolean(false)),
         (Bop::Neq, _, _) => Ok(Boolean(true)),
+        _ => Err(format!("This should have been caught by the typechecker"))
     }
 }
 

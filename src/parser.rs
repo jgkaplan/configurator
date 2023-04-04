@@ -133,7 +133,6 @@ fn parse_expr(pair: Pair<Rule>) -> Expr {
                 "*" => Bop::Times,
                 "-" => Bop::Minus,
                 "/" => Bop::Div,
-                "." => Bop::Access,
                 ">" => Bop::Gt,
                 "<" => Bop::Lt,
                 ">=" => Bop::Gte,
@@ -151,6 +150,37 @@ fn parse_expr(pair: Pair<Rule>) -> Expr {
                 t: None,
                 expr: Binop(Box::new(e1), bop, Box::new(e2))
             }
+        },
+        Rule::access => {
+            let it = pair.into_inner().next().unwrap();
+            match it.as_rule() {
+                Rule::dot_access => {
+                    let mut it = it.into_inner();
+                    let e1 = it.next().unwrap();
+                    let e1 = parse_expr(e1);
+        
+                    let id = it.next().unwrap();
+                    let id = parse_ident(id);
+                    Expr {
+                        t: None,
+                        expr: Binop(Box::new(e1), Bop::Access, Box::new(Expr{t: None, expr: Ident(id)}))
+                    }
+                },
+                Rule::arr_access => {
+                    let mut it = it.into_inner();
+                    let e1 = it.next().unwrap();
+                    let e1 = parse_expr(e1);
+        
+                    let e2 = it.next().unwrap();
+                    let e2 = parse_expr(e2);
+                    Expr {
+                        t: None,
+                        expr: Binop(Box::new(e1), Bop::Access, Box::new(e2))
+                    }
+                },
+                _ => unreachable!()
+            }
+            
         },
         Rule::unop_expr => {
             let mut it = pair.into_inner();
@@ -194,9 +224,19 @@ fn parse_expr(pair: Pair<Rule>) -> Expr {
         },
         // Rule::version,
         //TODO: maybe split this parsing so that we can get the type better
-        Rule::number => Expr {
-            t: Some(Type::Number),
-            expr: Number(pair.as_str().parse().unwrap())
+        Rule::number => {
+            let inner = pair.into_inner().next().unwrap();
+            match inner.as_rule() {
+                Rule::float_n => Expr {
+                    t: Some(Type::Number),
+                    expr: Float(inner.as_str().parse().unwrap())
+                },
+                Rule::integer_n => Expr {
+                    t: Some(Type::Integer),
+                    expr: Int(inner.as_str().parse().unwrap())
+                },
+                _ => unreachable!()
+            }
         },
         Rule::bool => Expr {
             t: Some(Type::Bool),

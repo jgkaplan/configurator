@@ -7,19 +7,24 @@ parser
     - match/case
     - hash
     - lshift, rshift, mod
+    - change if to not require parentheses
+    - in, not in
+    - [] for access
+    - proper parsing of float vs access
 
 ast
     - pretty printer / formatter
     - store location in tree
+    - do we want an arbitrary precision number? rug, malachite
 
 typechecker
     - bidirectional type checking
     - better error messages
 
 interpreter
-    - make it
     - replace hashmap bindings with a type that doesn't need to be copied
-    - bounds checking on numbers
+    - bounds checking on numbers when converting from float to int
+    - enable negative list access
 
 specific configuration interpreter
 
@@ -29,4 +34,4 @@ notes
 ------
 currently using call-by-value semantics
 boolean AND and OR are not lazy because I didn't feel like it
-lambdas cannot be compared. To lambdas will always be unequal
+lambdas cannot be compared. Two lambdas will always be unequal

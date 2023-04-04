@@ -3,9 +3,9 @@ use std::collections::HashMap;
 
 // TODO: account for type aliases
 
-pub fn typecheck(expr: &Expr, bindings: HashMap<Ident, Type>) -> Result<TypedExpr, String> {
+pub fn typecheck(expr: &Expr, bindings: &HashMap<Ident, Type>) -> Result<TypedExpr, String> {
     use ExprKind::*;
-    match expr.expr {
+    match &expr.expr {
         // TODO this won't work if let isn't typed
         Let(id, op_t, e1, e2) => {
             let te1 = typecheck(&*e1, bindings)?;
@@ -16,7 +16,7 @@ pub fn typecheck(expr: &Expr, bindings: HashMap<Ident, Type>) -> Result<TypedExp
             }
             let new_defs = bindings.clone();
             new_defs.insert(id, te1.t);
-            let te2 = typecheck(&*e2, new_defs)?;
+            let te2 = typecheck(&*e2, &new_defs)?;
             Ok(TypedExpr {
                 t: te2.t,
                 expr: Let(id, op_t, Box::new(te1), Box::new(te2))
@@ -150,6 +150,7 @@ pub fn typecheck(expr: &Expr, bindings: HashMap<Ident, Type>) -> Result<TypedExp
                     //TODO: What is the type of a record key?
                     // want to allow numbers
                     // how do we typecheck this? The expr needs to be known before typechecking works.
+                    // Some(Type::Text) //TODO: REMOVE
                 }
                 _ => None
             };
@@ -169,6 +170,7 @@ pub fn typecheck(expr: &Expr, bindings: HashMap<Ident, Type>) -> Result<TypedExp
         Lambda(id,op_t,e) => {
             //TODO: what do we do if type isn't specified in the lambda?
             //how do we infer the type?
+            // Ok(TypedExpr{t: Type::Text, expr: Lambda(id, op_t, Box::new(typecheck(&*e, bindings)?))}) // TODO: REMOVE
         },
         Record(hm) => {
             let record_type = HashMap::new();
@@ -181,7 +183,8 @@ pub fn typecheck(expr: &Expr, bindings: HashMap<Ident, Type>) -> Result<TypedExp
             Ok(TypedExpr { t: Type::Record(record_type), expr: Record(typed_record) })
         },
         List(vec) => {
-            let typed_vec : Vec<TypedExpr> = vec.iter().map(|e| typecheck(e, bindings)).collect()?;
+            let typed_vec : Result<Vec<TypedExpr>,String> = vec.iter().map(|e| typecheck(e, &bindings)).collect();
+            let typed_vec = typed_vec?;
             // TODO: I don't think this is what we want.
             if vec.len() == 0 {
                 return Ok(TypedExpr {

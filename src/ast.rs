@@ -224,7 +224,8 @@ pub enum ExprKind<Wrapper> {
     Record(HashMap<Ident, Wrapper>),
     List(Vec<Wrapper>),
     Text(String),
-    Number(f64),
+    Int(i64),
+    Float(f64),
     Boolean(bool),
     Lambda(Ident,Option<Type>,Box<Wrapper>),
     Null,
@@ -237,9 +238,10 @@ pub enum Value {
     Record(HashMap<Ident, Value>),
     List(Vec<Value>),
     Text(String),
-    Number(f64),
+    Int(i64),
+    Float(f64),
     Boolean(bool),
-    Lambda(Ident,TypedExpr),
+    Lambda(Ident,Expr),
     Null,
     //Color, Version, Path
 }

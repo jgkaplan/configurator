@@ -8,7 +8,7 @@ use std::collections::HashMap;
 mod cli;
 mod parser;
 mod ast;
-mod typechecker;
+// mod typechecker;
 mod builtins;
 mod interpreter;
 
@@ -21,8 +21,8 @@ fn main() {
 fn test() -> Result<(), String>{
     let unparsed_file = fs::read_to_string("testfile").expect("cannot read file");
     let e = parser::parse(&unparsed_file).expect("unsuccessful parse");
-    let te: ast::TypedExpr = typechecker::typecheck(&e, builtins::BUILTINS)?;
-    let reduced: ast::Value = interpreter::normalize(&te, &HashMap::new())?;
+    // let te: ast::TypedExpr = typechecker::typecheck(&e, &HashMap::new())?;
+    let reduced: ast::Value = interpreter::normalize(&e, &HashMap::new())?;
     println!("{:#?}", reduced);
     Ok(())
 }

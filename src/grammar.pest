@@ -1,11 +1,13 @@
-natural  = @{ "0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* }
-real     = @{ natural ~ "." ~ (ASCII_DIGIT+) }
-binary   = @{ "0b" ~ ASCII_BIN_DIGIT+ }
-octal    = @{ "0o" ~ ASCII_OCT_DIGIT+ }
-hex      = @{ "0x" ~ ASCII_HEX_DIGIT+ }
-hexcolor = @{ "#" ~ (ASCII_HEX_DIGIT{8} | ASCII_HEX_DIGIT{6} | ASCII_HEX_DIGIT{4} | ASCII_HEX_DIGIT{3}) }
-number   =  { hex | octal | binary | real | natural }
-color    =  {
+natural   = @{ "0" | ASCII_NONZERO_DIGIT ~ ASCII_DIGIT* }
+real      = @{ natural ~ "." ~ (ASCII_DIGIT+) }
+binary    = @{ "0b" ~ ASCII_BIN_DIGIT+ }
+octal     = @{ "0o" ~ ASCII_OCT_DIGIT+ }
+hex       = @{ "0x" ~ ASCII_HEX_DIGIT+ }
+hexcolor  = @{ "#" ~ (ASCII_HEX_DIGIT{8} | ASCII_HEX_DIGIT{6} | ASCII_HEX_DIGIT{4} | ASCII_HEX_DIGIT{3}) }
+integer_n =  { hex | octal | binary | natural }
+float_n   =  { real }
+number    =  { float_n | integer_n }
+color     =  {
     hexcolor
   | ("rgba(" ~ natural ~ "," ~ natural ~ "," ~ natural ~ "," ~ natural ~ ")")
   | ("rgb(" ~ natural ~ "," ~ natural ~ "," ~ natural ~ ")")
@@ -24,12 +26,13 @@ v_id    =  { (ASCII_ALPHANUMERIC | "-")+ }
 // filepath = {} //todo
 // uri = {} //todo
 // resource = { filepath | uri }
-bool   = { "true" | "false" }
-list   = { "[" ~ (expr ~ ",")* ~ (expr ~ ","?)? ~ "]" }
+bool        = { "true" | "false" }
+list        = { "[" ~ (expr ~ ",")* ~ (expr ~ ","?)? ~ "]" }
 record_pair = { ident ~ "=" ~ expr }
-record = { 
+record      = {
     "{" ~ "}"
-    | "{" ~ record_pair ~ ("," ~ record_pair)* ~ ","? ~ "}" }
+  | "{" ~ record_pair ~ ("," ~ record_pair)* ~ ","? ~ "}"
+}
 
 string = ${ "\"" ~ inner ~ "\"" }
 inner  = @{ char* }
@@ -41,10 +44,11 @@ char   =  {
 ident  = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
 
 list_type        =  { "[" ~ type_expr ~ "]" }
-record_type_pair = { ident ~ ":" ~ type_expr }
-record_type = { 
+record_type_pair =  { ident ~ ":" ~ type_expr }
+record_type      =  {
     "{" ~ "}"
-    | "{" ~ record_type_pair ~ ("," ~ record_type_pair)* ~ ","? ~ "}" }
+  | "{" ~ record_type_pair ~ ("," ~ record_type_pair)* ~ ","? ~ "}"
+}
 function_type    =  { type_term ~ "->" ~ type_expr }
 alternative_type =  { type_term ~ "|" ~ type_expr }
 builtin_type     =  {
@@ -58,11 +62,12 @@ builtin_type     =  {
   | "Path"
   | "Null"
   | "Version" // semver
+
   | "Any"
   | "Type"
 }
 user_type        = @{ (builtin_type ~ ident) | (!builtin_type ~ ident) }
-paren_type = {"(" ~ type_expr ~ ")"}
+paren_type       =  { "(" ~ type_expr ~ ")" }
 
 type_term = _{
     user_type
@@ -71,6 +76,7 @@ type_term = _{
 }
 
 type_expr = _{
+  
   | alternative_type
   | function_type
   | list_type
@@ -78,8 +84,8 @@ type_expr = _{
   | type_term
 }
 
-null = {"null"}
-paren_expr = {"(" ~ expr ~ ")"}
+null       = { "null" }
+paren_expr = { "(" ~ expr ~ ")" }
 
 term = _{
   
@@ -92,32 +98,36 @@ term = _{
   | color
   | null
   | ident // | resource
+
   | lambda
   | paren_expr
 }
 
 function_application =  { term ~ term+ }
 lambda               =  {
-  typed_lambda
+    typed_lambda
   | untyped_lambda
 }
-typed_lambda = {
-  "\\(" ~ ident ~ ":" ~ type_expr ~ ")" ~ "->" ~ expr
+typed_lambda         =  {
+    "\\(" ~ ident ~ ":" ~ type_expr ~ ")" ~ "->" ~ expr
   | "\\" ~ ident ~ ":" ~ type_expr ~ "->" ~ expr
 }
-untyped_lambda = {
-  "\\(" ~ ident ~ ")" ~ "->" ~ expr
+untyped_lambda       =  {
+    "\\(" ~ ident ~ ")" ~ "->" ~ expr
   | "\\" ~ ident ~ "->" ~ expr
 }
 if_expr              =  { "if" ~ term ~ "then" ~ term ~ "else" ~ term }
-typed_let = { "let" ~ ident ~ ":" ~ type_expr ~ "=" ~ term ~ "in" ~ expr }
-untyped_let = {"let" ~ ident ~ "=" ~ term ~ "in" ~ expr}
+typed_let            =  { "let" ~ ident ~ ":" ~ type_expr ~ "=" ~ term ~ "in" ~ expr }
+untyped_let          =  { "let" ~ ident ~ "=" ~ term ~ "in" ~ expr }
 let_expr             =  {
-  typed_let
+    typed_let
   | untyped_let
 }
-binop                =  { "+" | "**" | "*" | "-" | "/" | "." | ">" | "<" | ">=" | "<=" | "==" | "!=" | "&&" | "||" | "^" }
+binop                =  { "+" | "**" | "*" | "-" | "/" | ">" | "<" | ">=" | "<=" | "==" | "!=" | "&&" | "||" | "^" }
 binop_expr           =  { term ~ binop ~ term }
+dot_access           =  { term ~ "." ~ ident }
+arr_access           =  { term ~ "[" ~ expr ~ "]" }
+access               =  { dot_access | arr_access }
 unop                 =  { "!" | "-" }
 unop_expr            = @{ unop ~ term }
 
@@ -127,10 +137,12 @@ type_decl = {
 }
 
 expr = _{
+  
   | if_expr
   | let_expr
   | function_application
   | binop_expr
+  | access
   | unop_expr
   | term
 }
