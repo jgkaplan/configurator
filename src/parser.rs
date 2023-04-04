@@ -1,12 +1,7 @@
 use pest::Parser;
 use std::collections::HashMap;
 use pest::iterators::Pair;
-use crate::ast::Expr;
-use crate::ast::ExprKind::*;
-use crate::ast::Type;
-use crate::ast::Ident;
-use crate::ast::Binop;
-use crate::ast::Unop;
+use crate::ast::{Expr, ExprKind::*, Type, Ident, Bop, Uop};
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"]
@@ -132,22 +127,22 @@ fn parse_expr(pair: Pair<Rule>) -> Expr {
             let e1 = it.next().unwrap();
             let e1 = parse_expr(e1);
             let bop = it.next().unwrap();
-            let bop: Binop = match bop.as_str() {
-                "+" => Binop::Plus,
-                "**" => Binop::Pow,
-                "*" => Binop::Times,
-                "-" => Binop::Minus,
-                "/" => Binop::Div,
-                "." => Binop::Access,
-                ">" => Binop::Gt,
-                "<" => Binop::Lt,
-                ">=" => Binop::Gte,
-                "<=" => Binop::Lte,
-                "==" => Binop::Eq,
-                "!=" => Binop::Neq,
-                "&&" => Binop::And,
-                "||" => Binop::Or,
-                "^" => Binop::Xor,
+            let bop: Bop = match bop.as_str() {
+                "+" => Bop::Plus,
+                "**" => Bop::Pow,
+                "*" => Bop::Times,
+                "-" => Bop::Minus,
+                "/" => Bop::Div,
+                "." => Bop::Access,
+                ">" => Bop::Gt,
+                "<" => Bop::Lt,
+                ">=" => Bop::Gte,
+                "<=" => Bop::Lte,
+                "==" => Bop::Eq,
+                "!=" => Bop::Neq,
+                "&&" => Bop::And,
+                "||" => Bop::Or,
+                "^" => Bop::Xor,
                 _ => unreachable!()
             };
             let e2 = it.next().unwrap();
@@ -160,9 +155,9 @@ fn parse_expr(pair: Pair<Rule>) -> Expr {
         Rule::unop_expr => {
             let mut it = pair.into_inner();
             let unop = it.next().unwrap();
-            let unop: Unop = match unop.as_str() {
-                "-" => Unop::Neg,
-                "!" => Unop::Not,
+            let unop: Uop = match unop.as_str() {
+                "-" => Uop::Neg,
+                "!" => Uop::Not,
                 _ => unreachable!()
             };
             let e = it.next().unwrap();

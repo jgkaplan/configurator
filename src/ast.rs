@@ -6,7 +6,7 @@ use std::mem::discriminant;
 pub type Ident = String;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum Binop {
+pub enum Bop {
     Eq,
     Neq,
     Lt,
@@ -25,7 +25,7 @@ pub enum Binop {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum Unop {
+pub enum Uop {
     Neg,
     Not
 }
@@ -46,6 +46,54 @@ pub enum Type {
     Any,
     Type,
     Ident(Ident)
+}
+
+pub trait JoinSemiLattice : PartialOrd {
+    fn lub(&self, other: &Self) -> Self;
+}
+
+impl JoinSemiLattice for Type {
+    fn lub(&self, other: &Type) -> Type {
+        match (self, other){
+            (a,b) if a >= b => a.clone(),
+            (a,b) if a < b => b.clone(),
+            (Type::Record(hm1), Type::Record(hm2)) => {
+                let mut joined_hashmap = hm1.clone();
+                for (k, v) in hm2 {
+                    // might need clone for key or value
+                    joined_hashmap.entry(k.clone()).and_modify(|existing| {*existing = v.lub(existing)}).or_insert(v.clone());
+                }
+                Type::Record(joined_hashmap)
+            },
+            (Type::List(a), Type::List(b)) => Type::List(Box::new(a.lub(b))), //*a.lub(&*b)
+            (Type::Alternative(a,b),Type::Alternative(c,d)) => {
+                let alt1 = a.lub(b);
+                let alt2 = c.lub(d);
+                match alt2 {
+                    Type::Alternative(e,f) => {
+                        // TODO: I'm not sure this actually is what I want, but we'll see
+                        alt1.lub(&e).lub(&f)
+                    },
+                    _ => alt1.lub(&alt2)
+                }
+            },
+            (Type::Alternative(a,b),c) 
+            | (c, Type::Alternative(a,b)) => {
+                if c <= a || c <= b {
+                    self.clone()
+                } else if c >= a && c >= b {
+                    c.clone()
+                } else if c >= a {
+                    Type::Alternative(Box::new(c.clone()), b.clone())
+                } else if c >= b {
+                    Type::Alternative(a.clone(), Box::new(c.clone()))
+                } else {
+                    Type::Alternative(Box::new(Type::Alternative(a.clone(),b.clone())), Box::new(c.clone()))
+                }
+            },
+            (a,b) => Type::Alternative(Box::new(a.clone()), Box::new(b.clone()))
+        }
+    }
 }
 
 /*
@@ -152,26 +200,26 @@ impl PartialEq for Type {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Expr {
     pub t: Option<Type>,
     pub expr: ExprKind<Self>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TypedExpr {
     pub t: Type,
     pub expr: ExprKind<Self>
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ExprKind<Wrapper> {
     Let(Ident, Option<Type>, Box<Wrapper>, Box<Wrapper>),
     If(Box<Wrapper>, Box<Wrapper>, Box<Wrapper>),
     App(Box<Wrapper>, Box<Wrapper>),
-    Binop(Box<Wrapper>, Binop, Box<Wrapper>),
-    Unop(Unop, Box<Wrapper>),
+    Binop(Box<Wrapper>, Bop, Box<Wrapper>),
+    Unop(Uop, Box<Wrapper>),
     Ident(Ident),
     Record(HashMap<Ident, Wrapper>),
     List(Vec<Wrapper>),
@@ -184,22 +232,16 @@ pub enum ExprKind<Wrapper> {
 }
 
 
-// #[derive(Debug)]
-// pub struct Value {
-//     pub t: Type,
-//     pub val: ValueKind
-// }
-
-// #[derive(Debug)]
-// pub enum ValueKind {
-//     Record(HashMap<Ident, Value>),
-//     List(Vec<Value>),
-//     Text(String),
-//     Number(f64),
-//     Boolean(bool),
-//     Lambda(Ident,Expr),
-//     Null,
-//     //Color, Version, Path
-// }
+#[derive(Debug, Clone)]
+pub enum Value {
+    Record(HashMap<Ident, Value>),
+    List(Vec<Value>),
+    Text(String),
+    Number(f64),
+    Boolean(bool),
+    Lambda(Ident,TypedExpr),
+    Null,
+    //Color, Version, Path
+}
 
 // do we consider a function to be a value

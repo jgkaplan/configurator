@@ -6,6 +6,27 @@ parser
     - environmental variable support (maybe)
     - match/case
     - hash
+    - lshift, rshift, mod
 
 ast
     - pretty printer / formatter
+    - store location in tree
+
+typechecker
+    - bidirectional type checking
+    - better error messages
+
+interpreter
+    - make it
+    - replace hashmap bindings with a type that doesn't need to be copied
+    - bounds checking on numbers
+
+specific configuration interpreter
+
+cli
+
+notes
+------
+currently using call-by-value semantics
+boolean AND and OR are not lazy because I didn't feel like it
+lambdas cannot be compared. To lambdas will always be unequal

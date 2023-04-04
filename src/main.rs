@@ -3,9 +3,14 @@ extern crate pest;
 extern crate pest_derive;
 // use clap::Parser;
 use std::fs;
+use std::collections::HashMap;
+
 mod cli;
 mod parser;
 mod ast;
+mod typechecker;
+mod builtins;
+mod interpreter;
 
 fn main() {
     // let cli = cli::Cli::parse();
@@ -13,8 +18,11 @@ fn main() {
     test();
 }
 
-fn test(){
+fn test() -> Result<(), String>{
     let unparsed_file = fs::read_to_string("testfile").expect("cannot read file");
     let e = parser::parse(&unparsed_file).expect("unsuccessful parse");
-    println!("{:#?}", e);
+    let te: ast::TypedExpr = typechecker::typecheck(&e, builtins::BUILTINS)?;
+    let reduced: ast::Value = interpreter::normalize(&te, &HashMap::new())?;
+    println!("{:#?}", reduced);
+    Ok(())
 }
